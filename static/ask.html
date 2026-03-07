@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask the City — London Nervous System</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e14;--bg2:#111820;--bg3:#1a2130;--bg4:#222d3e;
+  --fg:#c0c8d8;--dim:#5a6580;--green:#7ec87e;--amber:#e8b84a;--red:#e85454;
+  --cyan:#5ccfe6;--purple:#c49bdb;--blue:#5c9ce6;
+  --border:#1e2a3a;
+}
+html,body{height:100%;font-family:'JetBrains Mono','SF Mono','Fira Code',monospace;background:var(--bg);color:var(--fg)}
+
+/* Header */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;border-bottom:1px solid var(--border);background:var(--bg2);
+}
+.header h1{font-size:15px;font-weight:600;letter-spacing:1px;color:var(--purple)}
+.header h1 span{color:var(--dim);font-weight:400}
+.back-btn{
+  background:var(--bg3);color:var(--cyan);border:1px solid var(--border);
+  padding:4px 12px;font-size:11px;cursor:pointer;font-family:inherit;border-radius:3px;
+  text-decoration:none;
+}
+.back-btn:hover{background:var(--bg4);color:var(--fg)}
+
+/* Main container */
+.container{max-width:900px;margin:0 auto;padding:20px;height:calc(100vh - 52px);display:flex;flex-direction:column}
+
+/* Input bar */
+.input-bar{
+  display:flex;gap:8px;margin-bottom:20px;flex-shrink:0;
+}
+.input-bar input{
+  flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--fg);
+  padding:12px 16px;font-size:14px;font-family:inherit;border-radius:4px;outline:none;
+}
+.input-bar input:focus{border-color:var(--purple)}
+.input-bar input::placeholder{color:var(--dim)}
+.input-bar button{
+  background:var(--purple);color:var(--bg);border:none;padding:12px 24px;
+  font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;border-radius:4px;
+  letter-spacing:1px;
+}
+.input-bar button:hover{filter:brightness(1.15)}
+.input-bar button:disabled{opacity:0.4;cursor:not-allowed}
+
+/* Thread area */
+.thread{flex:1;overflow-y:auto;padding-bottom:20px}
+.thread::-webkit-scrollbar{width:6px}
+.thread::-webkit-scrollbar-track{background:var(--bg)}
+.thread::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Event cards */
+.event{margin-bottom:12px;animation:slideIn .3s ease-out}
+@keyframes slideIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* User question */
+.user-q{
+  background:var(--bg3);border-left:3px solid var(--purple);padding:10px 14px;
+  border-radius:0 4px 4px 0;font-size:13px;
+}
+.user-q .label{color:var(--purple);font-size:11px;font-weight:600;margin-bottom:4px}
+
+/* Status pill */
+.status-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--bg2);border:1px solid var(--border);padding:6px 14px;
+  border-radius:20px;font-size:12px;color:var(--cyan);
+}
+.pulse{width:8px;height:8px;border-radius:50%;background:var(--cyan);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.6)}}
+
+/* Plan card */
+.plan-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:12px 16px;
+}
+.plan-card .title{color:var(--cyan);font-size:12px;font-weight:600;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px}
+.plan-card ol{list-style:none;counter-reset:step}
+.plan-card li{counter-increment:step;padding:4px 0;font-size:12px;display:flex;gap:8px;align-items:flex-start}
+.plan-card li::before{content:counter(step);background:var(--bg3);color:var(--cyan);width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0}
+.plan-card .step-type{color:var(--amber);font-weight:600}
+.plan-card .step-reason{color:var(--dim)}
+
+/* Step result */
+.step-result{
+  background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:12px 16px;
+}
+.step-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:12px}
+.step-icon{font-size:14px}
+.step-done{color:var(--green)}
+.step-type-label{color:var(--amber);font-weight:600}
+.step-count{color:var(--dim)}
+.step-items{display:flex;flex-direction:column;gap:6px}
+
+/* Evidence cards */
+.evidence{
+  background:var(--bg3);border-radius:3px;padding:8px 12px;font-size:11px;line-height:1.5;
+  border-left:2px solid var(--border);
+}
+.evidence.anomaly{border-left-color:var(--red)}
+.evidence.message{border-left-color:var(--cyan)}
+.evidence.connection{border-left-color:var(--amber)}
+.evidence.observation{border-left-color:var(--blue)}
+.evidence.prediction{border-left-color:var(--purple)}
+.evidence.web{border-left-color:var(--green)}
+.evidence .web-title{color:var(--green);font-weight:600}
+.evidence .web-url{color:var(--dim);font-size:10px;word-break:break-all}
+.evidence.article{border-left-color:var(--green);background:var(--bg2)}
+.evidence .article-text{color:var(--dim);font-size:11px;line-height:1.5;margin-top:4px;max-height:80px;overflow:hidden;position:relative}
+.evidence .article-text::after{content:'';position:absolute;bottom:0;left:0;right:0;height:20px;background:linear-gradient(transparent,var(--bg2))}
+.evidence .source{color:var(--amber);font-weight:600}
+.evidence .severity{padding:1px 6px;border-radius:2px;font-size:10px;font-weight:600}
+.evidence .sev-1{background:rgba(126,200,126,.15);color:var(--green)}
+.evidence .sev-2{background:rgba(232,184,74,.15);color:var(--amber)}
+.evidence .sev-3{background:rgba(232,84,84,.15);color:var(--red)}
+.evidence .agent{color:var(--cyan);font-weight:600}
+.evidence .time{color:var(--dim);font-size:10px}
+.evidence .content{color:var(--fg);margin-top:2px}
+.evidence .meta{color:var(--dim)}
+.evidence .outcome{font-weight:600;padding:1px 6px;border-radius:2px;font-size:10px}
+.evidence .outcome.correct{background:rgba(126,200,126,.15);color:var(--green)}
+.evidence .outcome.wrong{background:rgba(232,84,84,.15);color:var(--red)}
+.evidence .outcome.pending{background:rgba(232,184,74,.15);color:var(--amber)}
+
+/* Follow-up indicator */
+.followup-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:10px 14px;
+  border-left:3px solid var(--amber);
+}
+.followup-card .label{color:var(--amber);font-size:11px;font-weight:600;margin-bottom:4px}
+
+/* Claude card */
+.claude-card{
+  background:var(--bg2);border:1px solid var(--purple);border-radius:4px;padding:10px 14px;
+  display:flex;align-items:center;gap:10px;
+}
+.claude-card .icon{font-size:16px}
+.claude-card .info{font-size:12px}
+.claude-card .instance-id{color:var(--purple);font-weight:600}
+
+/* Synthesis card */
+.synthesis{
+  background:var(--bg2);border:1px solid var(--cyan);border-radius:4px;padding:16px 20px;
+  box-shadow:0 0 20px rgba(92,207,230,.08);
+}
+.synthesis .headline{font-size:16px;font-weight:600;color:var(--fg);margin-bottom:4px}
+.synthesis .confidence{font-size:11px;margin-bottom:12px}
+.synthesis .conf-bar{display:inline-block;width:60px;height:6px;background:var(--bg3);border-radius:3px;margin-left:6px;vertical-align:middle;overflow:hidden}
+.synthesis .conf-fill{height:100%;border-radius:3px}
+.synthesis .summary{font-size:13px;line-height:1.7;margin-bottom:14px;color:var(--fg)}
+.synthesis h4{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:12px 0 6px}
+.synthesis ul{list-style:none;padding:0}
+.synthesis li{font-size:12px;padding:3px 0;color:var(--fg)}
+.synthesis li::before{content:"";display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--cyan);margin-right:8px;vertical-align:middle}
+.synthesis .blind-spots li::before{background:var(--amber)}
+.synthesis .follow-ups{margin-top:12px}
+.synthesis .follow-up-btn{
+  display:inline-block;background:var(--bg3);border:1px solid var(--border);
+  color:var(--purple);padding:4px 10px;font-size:11px;cursor:pointer;
+  font-family:inherit;border-radius:3px;margin:3px 4px 3px 0;
+}
+.synthesis .follow-up-btn:hover{background:var(--bg4);border-color:var(--purple)}
+
+/* Separator */
+.separator{border:none;border-top:1px solid var(--border);margin:16px 0}
+
+/* Error */
+.error-card{
+  background:rgba(232,84,84,.08);border:1px solid var(--red);border-radius:4px;
+  padding:10px 14px;color:var(--red);font-size:12px;
+}
+
+/* Empty state */
+.empty-state{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:var(--dim);text-align:center;
+}
+.empty-state .icon{font-size:48px;margin-bottom:16px;opacity:0.3}
+.empty-state .title{font-size:16px;color:var(--fg);margin-bottom:8px}
+.empty-state .subtitle{font-size:12px;max-width:400px;line-height:1.6}
+.empty-state .examples{margin-top:20px;display:flex;flex-direction:column;gap:6px}
+.empty-state .example{
+  background:var(--bg2);border:1px solid var(--border);padding:6px 14px;
+  border-radius:3px;font-size:12px;cursor:pointer;color:var(--fg);
+}
+.empty-state .example:hover{border-color:var(--purple);color:var(--purple)}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>LONDON NERVOUS SYSTEM <span>// ask the city</span></h1>
+  <a href="/" class="back-btn">&#8592; DASHBOARD</a>
+</div>
+
+<div class="container">
+  <div class="input-bar">
+    <input id="questionInput" type="text" placeholder="What do you want to know about London?" autofocus>
+    <button id="askBtn" onclick="ask()">ASK</button>
+  </div>
+
+  <div class="thread" id="thread">
+    <div class="empty-state" id="emptyState">
+      <div class="icon">&#x1F50D;</div>
+      <div class="title">Ask the City Anything</div>
+      <div class="subtitle">Ask anything. The system searches its own accumulated intelligence — anomalies, connections, predictions, agent conversations — AND the live web, then synthesizes everything into an answer.</div>
+      <div class="examples">
+        <div class="example" onclick="askQuestion(this.textContent)">What's happening with the Iran protests?</div>
+        <div class="example" onclick="askQuestion(this.textContent)">Why is the power grid spiking?</div>
+        <div class="example" onclick="askQuestion(this.textContent)">What anomalies are near Canary Wharf?</div>
+        <div class="example" onclick="askQuestion(this.textContent)">What are the latest discoveries?</div>
+        <div class="example" onclick="askQuestion(this.textContent)">How accurate are the system's predictions?</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentThreadId = null;
+let eventSource = null;
+
+const input = document.getElementById('questionInput');
+const btn = document.getElementById('askBtn');
+const thread = document.getElementById('thread');
+const emptyState = document.getElementById('emptyState');
+
+input.addEventListener('keydown', e => { if (e.key === 'Enter' && !btn.disabled) ask(); });
+
+function askQuestion(q) {
+  input.value = q;
+  ask();
+}
+
+function ask() {
+  const q = input.value.trim();
+  if (!q) return;
+
+  // Hide empty state
+  if (emptyState) emptyState.style.display = 'none';
+
+  // Show user question
+  appendHTML(`<div class="event"><div class="user-q"><div class="label">YOU</div>${esc(q)}</div></div>`);
+
+  // Disable input
+  btn.disabled = true;
+  input.disabled = true;
+  input.value = '';
+
+  // Build URL
+  let url = `/api/investigate?q=${encodeURIComponent(q)}`;
+  if (currentThreadId) url += `&thread_id=${encodeURIComponent(currentThreadId)}`;
+
+  // Close previous connection
+  if (eventSource) eventSource.close();
+
+  eventSource = new EventSource(url);
+
+  eventSource.addEventListener('status', e => {
+    const d = JSON.parse(e.data);
+    appendHTML(`<div class="event"><div class="status-pill"><div class="pulse"></div>${esc(d.message)}</div></div>`);
+  });
+
+  eventSource.addEventListener('plan', e => {
+    const d = JSON.parse(e.data);
+    let html = '<div class="event"><div class="plan-card"><div class="title">Investigation Plan</div><ol>';
+    for (const s of d.steps) {
+      html += `<li><span class="step-type">${esc(s.type)}</span> <span class="step-reason">${esc(s.reason || '')}</span></li>`;
+    }
+    html += '</ol></div></div>';
+    appendHTML(html);
+  });
+
+  eventSource.addEventListener('step_result', e => {
+    const d = JSON.parse(e.data);
+    const r = d.result;
+    const step = d.step || {};
+    let html = `<div class="event"><div class="step-result">`;
+    html += `<div class="step-header"><span class="step-icon step-done">&#10003;</span>`;
+    html += `<span class="step-type-label">${esc(step.type || r.type)}</span>`;
+    html += `<span class="step-count">${r.count} found</span>`;
+    if (r.location) html += `<span class="step-count">@ ${esc(r.location.name || r.location.cell_id)}</span>`;
+    html += `</div>`;
+
+    if (r.items && r.items.length > 0) {
+      html += '<div class="step-items">';
+      html += renderItems(r.type, r.items);
+      html += '</div>';
+    }
+    html += '</div></div>';
+    appendHTML(html);
+  });
+
+  eventSource.addEventListener('followup', e => {
+    const d = JSON.parse(e.data);
+    let html = `<div class="event"><div class="followup-card"><div class="label">DIGGING DEEPER</div>${esc(d.reason)}`;
+    if (d.steps && d.steps.length) {
+      html += '<div style="margin-top:6px;font-size:11px;color:var(--dim)">';
+      for (const s of d.steps) html += `+ ${esc(s.type)}: ${esc(s.reason || '')}<br>`;
+      html += '</div>';
+    }
+    html += '</div></div>';
+    appendHTML(html);
+  });
+
+  eventSource.addEventListener('claude_spawned', e => {
+    const d = JSON.parse(e.data);
+    appendHTML(`<div class="event"><div class="claude-card"><span class="icon">&#x1F916;</span><div class="info">Claude Code spawned <span class="instance-id">${esc(d.instance_id)}</span><br><span style="color:var(--dim);font-size:11px">Deep analysis in progress</span></div></div></div>`);
+  });
+
+  eventSource.addEventListener('synthesis', e => {
+    const d = JSON.parse(e.data);
+    const conf = parseFloat(d.confidence) || 0;
+    const confPct = Math.round(conf * 100);
+    const confColor = conf > 0.7 ? 'var(--green)' : conf > 0.4 ? 'var(--amber)' : 'var(--red)';
+
+    let html = '<div class="event"><hr class="separator"><div class="synthesis">';
+    html += `<div class="headline">${esc(d.headline || 'Investigation Complete')}</div>`;
+    html += `<div class="confidence">Confidence: ${confPct}% <span class="conf-bar"><span class="conf-fill" style="width:${confPct}%;background:${confColor}"></span></span></div>`;
+    html += `<div class="summary">${formatText(d.summary || '')}</div>`;
+
+    if (d.key_evidence && d.key_evidence.length) {
+      html += '<h4>Key Evidence</h4><ul>';
+      for (const e of d.key_evidence) html += `<li>${esc(e)}</li>`;
+      html += '</ul>';
+    }
+    if (d.blind_spots && d.blind_spots.length) {
+      html += '<h4>Blind Spots</h4><ul class="blind-spots">';
+      for (const b of d.blind_spots) html += `<li>${esc(b)}</li>`;
+      html += '</ul>';
+    }
+    if (d.follow_up_questions && d.follow_up_questions.length) {
+      html += '<div class="follow-ups"><h4>Follow Up</h4>';
+      for (const f of d.follow_up_questions) {
+        html += `<button class="follow-up-btn" onclick="askQuestion(this.textContent)">${esc(f)}</button>`;
+      }
+      html += '</div>';
+    }
+    html += '</div></div>';
+    appendHTML(html);
+  });
+
+  eventSource.addEventListener('done', e => {
+    const d = JSON.parse(e.data);
+    currentThreadId = d.thread_id;
+    btn.disabled = false;
+    input.disabled = false;
+    input.placeholder = 'Ask a follow-up...';
+    input.focus();
+    eventSource.close();
+    eventSource = null;
+  });
+
+  eventSource.addEventListener('error', e => {
+    // EventSource built-in error (connection lost)
+    if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+      btn.disabled = false;
+      input.disabled = false;
+    }
+  });
+
+  // Custom error event from our API
+  eventSource.addEventListener('error', e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d && d.error) {
+        appendHTML(`<div class="event"><div class="error-card">${esc(d.error)}</div></div>`);
+      }
+    } catch(ex) {}
+  });
+}
+
+function renderItems(type, items) {
+  let html = '';
+  for (const item of items.slice(0, 8)) {
+    switch(type) {
+      case 'anomalies':
+        const sev = item.severity || 1;
+        const sevClass = sev >= 3 ? 'sev-3' : sev >= 2 ? 'sev-2' : 'sev-1';
+        html += `<div class="evidence anomaly">`;
+        html += `<span class="source">${esc(item.source || '?')}</span> `;
+        html += `<span class="severity ${sevClass}">SEV ${sev}</span> `;
+        if (item.z_score) html += `<span class="meta">z=${Number(item.z_score).toFixed(1)}</span> `;
+        html += `<span class="time">${formatTime(item.timestamp)}</span>`;
+        html += `<div class="content">${esc((item.description || '').slice(0, 200))}</div>`;
+        html += `</div>`;
+        break;
+
+      case 'messages': case 'narratives':
+        html += `<div class="evidence message">`;
+        html += `<span class="agent">${esc(item.from_agent || '?')}</span> `;
+        if (item.channel) html += `<span class="meta">${esc(item.channel)}</span> `;
+        html += `<span class="time">${formatTime(item.timestamp)}</span>`;
+        html += `<div class="content">${esc((item.content || '').slice(0, 250))}</div>`;
+        html += `</div>`;
+        break;
+
+      case 'connections':
+        html += `<div class="evidence connection">`;
+        html += `<span class="source">${esc(item.source_a || '?')}</span>`;
+        html += ` <span class="meta">&#8596;</span> `;
+        html += `<span class="source">${esc(item.source_b || '?')}</span> `;
+        html += `<span class="meta">conf=${Number(item.confidence || 0).toFixed(2)}</span> `;
+        html += `<span class="time">${formatTime(item.timestamp)}</span>`;
+        html += `<div class="content">${esc((item.description || '').slice(0, 200))}</div>`;
+        if (item.chain_id) html += `<div class="meta">chain: ${esc(item.chain_id)}</div>`;
+        html += `</div>`;
+        break;
+
+      case 'observations':
+        html += `<div class="evidence observation">`;
+        html += `<span class="source">${esc(item.source || '?')}</span> `;
+        html += `<span class="time">${formatTime(item.timestamp)}</span>`;
+        html += `<div class="content">${esc(String(item.value || '').slice(0, 200))}</div>`;
+        html += `</div>`;
+        break;
+
+      case 'predictions':
+        const outcome = item.prediction_outcome;
+        const status = outcome === 1 ? 'correct' : outcome === 0 ? 'wrong' : 'pending';
+        const statusLabel = outcome === 1 ? 'CORRECT' : outcome === 0 ? 'WRONG' : 'PENDING';
+        html += `<div class="evidence prediction">`;
+        html += `<span class="outcome ${status}">${statusLabel}</span> `;
+        html += `<span class="time">${formatTime(item.timestamp)}</span>`;
+        html += `<div class="content">${esc((item.prediction || item.description || '').slice(0, 200))}</div>`;
+        html += `</div>`;
+        break;
+
+      case 'web':
+        html += `<div class="evidence web">`;
+        html += `<span class="web-title">${esc(item.title || '?')}</span>`;
+        html += `<div class="content">${esc((item.snippet || '').slice(0, 300))}</div>`;
+        if (item.url) html += `<div class="web-url">${esc(item.url)}</div>`;
+        html += `</div>`;
+        break;
+
+      case 'web_articles':
+        html += `<div class="evidence article">`;
+        html += `<span class="web-title">${esc(item.title || '?')}</span>`;
+        html += ` <span class="meta">${(item.length||0).toLocaleString()} chars</span>`;
+        if (item.text) html += `<div class="article-text">${esc(item.text.slice(0, 500))}</div>`;
+        if (item.url) html += `<div class="web-url">${esc(item.url)}</div>`;
+        html += `</div>`;
+        break;
+
+      default:
+        html += `<div class="evidence"><div class="content">${esc(JSON.stringify(item).slice(0, 200))}</div></div>`;
+    }
+  }
+  return html;
+}
+
+function appendHTML(html) {
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  thread.appendChild(div.firstElementChild || div);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  try {
+    const d = new Date(ts);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMin = Math.floor(diffMs / 60000);
+    if (diffMin < 1) return 'just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    return `${Math.floor(diffHr / 24)}d ago`;
+  } catch(e) { return String(ts).slice(11, 16); }
+}
+
+function formatText(text) {
+  if (!text) return '';
+  // Escape HTML then convert newlines to <br>
+  return esc(text).replace(/\n/g, '<br>');
+}
+</script>
+</body>
+</html>

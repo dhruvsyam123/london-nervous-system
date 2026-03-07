@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>London Nervous System</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e14;--bg2:#111820;--bg3:#1a2130;
+  --fg:#c0c8d8;--dim:#5a6580;--green:#7ec87e;--amber:#e8b84a;--red:#e85454;
+  --cyan:#5ccfe6;--purple:#c49bdb;--blue:#5c9ce6;
+  --border:#1e2a3a;
+}
+html,body{height:100%;font-family:'JetBrains Mono','SF Mono','Fira Code',monospace;background:var(--bg);color:var(--fg);overflow:hidden}
+
+/* Layout */
+.dashboard{display:flex;flex-direction:column;height:100vh}
+
+/* Header */
+.header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 20px;border-bottom:1px solid var(--border);background:var(--bg2);
+}
+.header h1{font-size:15px;font-weight:600;letter-spacing:1px;color:var(--cyan)}
+.header h1 span{color:var(--dim);font-weight:400}
+.stats{display:flex;gap:20px;font-size:12px}
+.stats .stat{display:flex;align-items:center;gap:6px}
+.stats .stat .n{color:var(--cyan);font-weight:600;font-size:14px}
+.stats .stat .label{color:var(--dim)}
+.pulse-dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+
+/* Main area */
+.main{display:flex;flex:1;overflow:hidden;min-height:0}
+
+/* Log panel */
+.log-panel{display:flex;flex-direction:column;overflow:hidden;flex:1;min-width:200px}
+.log-header{padding:8px 16px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;justify-content:space-between;align-items:center}
+.log-body{flex:1;overflow-y:auto;padding:4px 0;font-size:12px;line-height:1.7}
+.log-body::-webkit-scrollbar{width:6px}
+.log-body::-webkit-scrollbar-track{background:var(--bg)}
+.log-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.log-entry{padding:1px 16px;display:flex;gap:10px;animation:fadeSlide .3s ease-out;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.log-entry:hover{background:var(--bg3)}
+.log-entry .time{color:var(--dim);min-width:65px}
+.log-entry .source{min-width:160px;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+.log-entry.INFO .source{color:var(--green)}
+.log-entry.WARNING .source{color:var(--amber)}
+.log-entry.ERROR .source{color:var(--red)}
+.log-entry.DEBUG .source{color:var(--dim)}
+.log-entry .msg{color:var(--fg);overflow:hidden;text-overflow:ellipsis}
+.log-entry.ERROR .msg{color:var(--red)}
+.log-entry.WARNING .msg{color:var(--amber)}
+.log-entry.DEBUG .msg{color:var(--dim)}
+.log-entry.thinking{border-left:2px solid var(--cyan);background:rgba(92,207,230,.04)}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+/* Thinking indicator */
+.thinking-bar{height:2px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);animation:think 1.5s ease-in-out infinite;opacity:0;transition:opacity .3s}
+.thinking-bar.active{opacity:1}
+@keyframes think{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+/* Images panel */
+.images-panel{display:flex;flex-direction:column;overflow:hidden;width:320px;min-width:200px;flex-shrink:0}
+.images-header{padding:8px 16px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.images-grid{flex:1;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:4px;padding:8px;align-content:start}
+.images-grid::-webkit-scrollbar{width:6px}
+.images-grid::-webkit-scrollbar-track{background:var(--bg)}
+.images-grid::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.img-card{position:relative;border-radius:4px;overflow:hidden;cursor:pointer;background:var(--bg3)}
+.img-card img{width:100%;height:auto;display:block;opacity:.85;transition:opacity .2s}
+.img-card:hover img{opacity:1}
+.img-card .overlay{position:absolute;bottom:0;left:0;right:0;padding:3px 6px;background:linear-gradient(transparent,rgba(0,0,0,.7));font-size:9px;color:var(--dim)}
+.no-images{grid-column:1/-1;text-align:center;padding:40px 16px;color:var(--dim);font-size:12px}
+
+/* Fullsize lightbox */
+.lightbox{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100;align-items:center;justify-content:center;cursor:pointer}
+.lightbox.show{display:flex}
+.lightbox img{max-width:90vw;max-height:90vh;border-radius:6px}
+
+/* Sources panel (vertical, left side of bottom section) */
+.sources-panel{display:flex;flex-direction:column;overflow:hidden;width:220px;min-width:150px;flex-shrink:0;border-right:1px solid var(--border);background:var(--bg2)}
+.sources-header{padding:6px 12px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:2px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);flex-shrink:0}
+.sources-scroll{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:4px;padding:6px 8px}
+.sources-scroll::-webkit-scrollbar{width:5px}
+.sources-scroll::-webkit-scrollbar-track{background:var(--bg2)}
+.sources-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.source-card{
+  padding:5px 8px;border-radius:4px;background:var(--bg);
+  border:1px solid var(--border);font-size:10px;
+  display:flex;flex-direction:column;gap:2px;flex-shrink:0;
+}
+.source-card .name{font-weight:600;display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.source-card .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.source-card .dot.ok{background:var(--green)}
+.source-card .dot.warn{background:var(--amber)}
+.source-card .dot.err{background:var(--red)}
+.source-card .detail{color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Claude instances */
+.claude-panel{border-top:1px solid var(--border);background:var(--bg);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.claude-header{padding:6px 16px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid var(--border);background:var(--bg2);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.claude-body{overflow-x:auto;overflow-y:hidden;padding:6px 8px;display:flex;flex-wrap:nowrap;gap:6px}
+.claude-body::-webkit-scrollbar{height:6px}
+.claude-body::-webkit-scrollbar-track{background:var(--bg)}
+.claude-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.claude-card{
+  padding:8px 10px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);
+  font-size:11px;min-width:220px;max-width:300px;flex:0 0 auto;
+  display:flex;flex-direction:column;gap:3px;animation:fadeSlide .3s ease-out;
+}
+.claude-card.running{border-color:var(--cyan);background:rgba(92,207,230,.06)}
+.claude-card.done{opacity:.7}
+.claude-card .cc-id{font-weight:600;display:flex;align-items:center;gap:6px}
+.claude-card.running .cc-id{color:var(--cyan)}
+.claude-card.done .cc-id{color:var(--dim)}
+.claude-card .cc-prompt{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10px}
+.claude-card .cc-meta{color:var(--dim);font-size:10px;display:flex;gap:8px}
+.claude-empty{color:var(--dim);font-style:italic;padding:10px 16px;font-size:11px}
+
+/* Claude detail modal */
+.claude-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:200;align-items:center;justify-content:center}
+.claude-modal.show{display:flex}
+.claude-modal-content{background:var(--bg2);border:1px solid var(--border);border-radius:8px;width:90vw;max-width:700px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;animation:fadeSlide .2s ease-out}
+.claude-modal-header{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0}
+.claude-modal-header h3{margin:0;font-size:13px;color:var(--cyan);font-weight:600}
+.claude-modal-close{background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;padding:0 4px;font-family:inherit}
+.claude-modal-close:hover{color:var(--fg)}
+.claude-modal-body{flex:1;overflow-y:auto;padding:12px 16px;font-size:12px;line-height:1.6}
+.claude-modal-body::-webkit-scrollbar{width:6px}
+.claude-modal-body::-webkit-scrollbar-track{background:var(--bg2)}
+.claude-modal-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.cm-section{margin-bottom:14px}
+.cm-label{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.cm-prompt{color:var(--fg);white-space:pre-wrap;word-break:break-word;background:var(--bg);padding:8px 10px;border-radius:4px;border:1px solid var(--border)}
+.cm-meta{display:flex;gap:16px;flex-wrap:wrap;color:var(--fg)}
+.cm-meta span{display:flex;align-items:center;gap:4px}
+.cm-meta .label{color:var(--dim);font-size:10px}
+.cm-output{background:var(--bg);padding:8px 10px;border-radius:4px;border:1px solid var(--border);color:var(--fg);white-space:pre-wrap;word-break:break-word;max-height:350px;overflow-y:auto;font-size:11px;font-family:'JetBrains Mono','SF Mono',monospace}
+.cm-output::-webkit-scrollbar{width:5px}
+.cm-output::-webkit-scrollbar-track{background:var(--bg)}
+.cm-output::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Channel panel (Slack/Discord style) */
+.channels-panel{border-top:1px solid var(--border);background:var(--bg);display:flex;flex-direction:row;overflow:hidden;flex:1;min-height:0}
+
+/* Channel sidebar */
+.channel-sidebar{width:180px;min-width:140px;flex-shrink:0;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.channel-sidebar-header{padding:8px 12px;font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:2px;border-bottom:1px solid var(--border);flex-shrink:0;font-weight:600}
+.channel-list{flex:1;overflow-y:auto;padding:4px 0}
+.channel-list::-webkit-scrollbar{width:4px}
+.channel-list::-webkit-scrollbar-track{background:var(--bg2)}
+.channel-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.channel-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:6px 12px;cursor:pointer;font-size:12px;color:var(--dim);
+  transition:all .12s ease;border-left:3px solid transparent;
+  gap:6px;
+}
+.channel-item:hover{background:var(--bg3);color:var(--fg)}
+.channel-item.active{background:var(--bg3);color:var(--fg);border-left-color:var(--cyan)}
+.channel-item .ch-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.channel-item .ch-hash{color:var(--dim);font-weight:600;flex-shrink:0;margin-right:2px}
+.channel-item.active .ch-hash{color:var(--cyan)}
+.channel-item .ch-badge{
+  background:var(--cyan);color:var(--bg);font-size:9px;font-weight:700;
+  border-radius:8px;min-width:16px;height:16px;
+  display:flex;align-items:center;justify-content:center;
+  padding:0 4px;flex-shrink:0;animation:badgePop .3s ease-out;
+}
+.channel-item .ch-badge.urgent{background:var(--red)}
+.channel-item .ch-badge.hidden{display:none}
+@keyframes badgePop{from{transform:scale(0)}to{transform:scale(1)}}
+
+/* Channel glow notification */
+.channel-item.new-msg{animation:chGlow .6s ease-out}
+@keyframes chGlow{0%{background:rgba(92,207,230,.15)}100%{background:transparent}}
+
+/* Channel messages area */
+.channel-messages{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+.channel-msg-header{
+  padding:8px 14px;font-size:12px;font-weight:600;color:var(--cyan);
+  border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;
+  display:flex;align-items:center;gap:8px;
+}
+.channel-msg-header .ch-desc{font-weight:400;font-size:11px;color:var(--dim)}
+.channel-msg-body{flex:1;overflow-y:auto;padding:8px 14px;display:flex;flex-direction:column;gap:2px}
+.channel-msg-body::-webkit-scrollbar{width:6px}
+.channel-msg-body::-webkit-scrollbar-track{background:var(--bg)}
+.channel-msg-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* Individual message (compact Slack style) */
+.ch-msg{
+  padding:4px 8px;border-radius:4px;font-size:12px;line-height:1.5;
+  animation:discFadeIn .3s ease-out;word-wrap:break-word;white-space:normal;
+}
+.ch-msg:hover{background:var(--bg3)}
+.ch-msg .ch-msg-meta{display:inline;margin-right:8px}
+.ch-msg .ch-msg-sender{font-weight:600;font-size:11px;margin-right:6px}
+.ch-msg .ch-msg-time{font-size:10px;color:var(--dim);font-weight:400}
+.ch-msg .ch-msg-text{color:var(--fg);display:inline}
+.ch-msg .ch-msg-priority{font-size:9px;padding:1px 5px;border-radius:3px;margin-left:6px;font-weight:600;vertical-align:middle}
+.ch-msg-empty{color:var(--dim);font-style:italic;text-align:center;padding:30px;font-size:12px}
+@keyframes discFadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Filter buttons */
+.log-filters{display:flex;gap:4px}
+.log-filters button{
+  background:none;border:1px solid var(--border);border-radius:3px;
+  color:var(--dim);font-size:10px;padding:2px 6px;cursor:pointer;font-family:inherit;
+}
+.log-filters button.active{color:var(--fg);border-color:var(--cyan)}
+
+/* Resize handles */
+.resize-h{
+  width:6px;cursor:col-resize;background:transparent;position:relative;flex-shrink:0;z-index:10;
+}
+.resize-h:hover,.resize-h.active{background:var(--cyan);opacity:.4}
+.resize-h::after{content:'';position:absolute;inset:-2px;} /* larger hit area */
+.resize-v{
+  height:6px;cursor:row-resize;background:transparent;position:relative;flex-shrink:0;z-index:10;
+}
+.resize-v:hover,.resize-v.active{background:var(--cyan);opacity:.4}
+.resize-v::after{content:'';position:absolute;inset:-2px;}
+
+/* View toggle */
+.view-toggle{display:flex;gap:2px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px}
+.view-toggle button{background:none;border:none;color:var(--dim);font-size:11px;padding:4px 10px;cursor:pointer;font-family:inherit;border-radius:3px;transition:all .15s}
+.view-toggle button.active{background:var(--cyan);color:var(--bg);font-weight:600}
+.view-toggle button:hover:not(.active){color:var(--fg)}
+
+/* Map panel */
+.map-panel{display:none;flex:1;overflow:hidden;position:relative}
+.map-panel.active{display:flex;flex-direction:column}
+.map-container{flex:1;min-height:0;background:var(--bg)}
+#london-map{height:100%;width:100%;background:#0a0e14}
+
+/* Leaflet dark overrides */
+.leaflet-container{background:var(--bg)!important;font-family:inherit}
+.leaflet-tile-pane{filter:brightness(0.7) contrast(1.2) saturate(0.3) hue-rotate(180deg) invert(1)}
+.leaflet-control-zoom a{background:var(--bg2)!important;color:var(--fg)!important;border-color:var(--border)!important}
+.leaflet-control-attribution{background:rgba(10,14,20,.8)!important;color:var(--dim)!important;font-size:9px!important}
+.leaflet-control-attribution a{color:var(--dim)!important}
+
+/* Map legend */
+.map-legend{position:absolute;bottom:30px;right:10px;background:rgba(17,24,32,.92);border:1px solid var(--border);border-radius:6px;padding:10px 14px;z-index:1000;font-size:11px;pointer-events:auto}
+.map-legend .legend-title{color:var(--cyan);font-weight:600;margin-bottom:6px;font-size:10px;text-transform:uppercase;letter-spacing:1px}
+.map-legend .legend-item{display:flex;align-items:center;gap:8px;margin:4px 0;color:var(--fg)}
+.map-legend .legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* Map popup */
+.map-popup{font-family:'JetBrains Mono','SF Mono',monospace;font-size:11px;line-height:1.5}
+.map-popup .popup-source{color:#5ccfe6;font-weight:600;font-size:12px}
+.map-popup .popup-desc{margin:4px 0;color:#c0c8d8}
+.map-popup .popup-meta{color:#5a6580;font-size:10px}
+.map-popup .popup-severity{display:inline-block;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:600}
+.leaflet-popup-content-wrapper{background:rgba(17,24,32,.95)!important;border:1px solid #1e2a3a!important;border-radius:8px!important;box-shadow:0 4px 20px rgba(0,0,0,.5)!important}
+.leaflet-popup-tip{background:rgba(17,24,32,.95)!important}
+.leaflet-popup-close-button{color:#5a6580!important;font-size:16px!important}
+
+/* Map stats overlay */
+.map-stats{position:absolute;top:10px;left:60px;z-index:1000;display:flex;gap:8px;pointer-events:none}
+.map-stat{background:rgba(17,24,32,.9);border:1px solid var(--border);border-radius:4px;padding:4px 10px;font-size:11px;pointer-events:auto}
+.map-stat .n{color:var(--cyan);font-weight:600}
+
+/* ── Retina: The City's Retina overlay ── */
+@keyframes foveaPulse {
+  0%   { transform: scale(1);   opacity: 0.6; }
+  50%  { transform: scale(1.15); opacity: 1;   }
+  100% { transform: scale(1);   opacity: 0.6; }
+}
+@keyframes foveaRingPulse {
+  0%   { transform: scale(1);   opacity: 0.4; }
+  50%  { transform: scale(1.4); opacity: 0;   }
+  100% { transform: scale(1);   opacity: 0.4; }
+}
+@keyframes periFoveaPulse {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(1.05); }
+}
+@keyframes saccadeBurst {
+  0%   { transform: scale(0.3); opacity: 1; }
+  40%  { transform: scale(1.6); opacity: 0.8; }
+  100% { transform: scale(1);   opacity: 0.6; }
+}
+@keyframes saccadeRipple {
+  0%   { transform: scale(1);   opacity: 0.6; box-shadow: 0 0 12px 4px rgba(92,207,230,0.6); }
+  100% { transform: scale(2.5); opacity: 0;   box-shadow: 0 0 0 0 transparent; }
+}
+.retina-panel {
+  background: rgba(10,16,22,0.92); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px; font-size: 11px; min-width: 210px;
+  backdrop-filter: blur(8px); font-family: inherit;
+}
+.retina-title { color: var(--cyan); font-weight: 700; font-size: 12px; margin-bottom: 8px; letter-spacing: 1px; text-transform: uppercase; }
+.retina-stat { display: flex; justify-content: space-between; padding: 3px 0; }
+.retina-stat .label { color: var(--dim); }
+.retina-stat .value { font-weight: 600; }
+.compression-row { display: flex; align-items: center; padding: 5px 0; gap: 6px; }
+.compression-bar { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+.compression-fill { height: 100%; background: linear-gradient(90deg, #5ccfe6, #7ec87e); border-radius: 3px; transition: width 1s ease; }
+.saccade-divider { color: var(--dim); font-size: 10px; margin-top: 6px; padding-top: 4px; border-top: 1px solid var(--border); letter-spacing: 1px; }
+.saccade-log-entry { font-size: 10px; color: var(--dim); padding: 2px 0; }
+.saccade-log-entry .sac-cell { color: var(--cyan); }
+.saccade-log-entry .sac-trigger { color: var(--amber); }
+.retina-legend-dot { width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; }
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <!-- Header -->
+  <div class="header">
+    <h1><span class="pulse-dot" style="display:inline-block;margin-right:10px"></span>LONDON NERVOUS SYSTEM <span>// live</span></h1>
+    <div class="view-toggle">
+      <button class="active" data-view="log" onclick="switchView('log')">LOG</button>
+      <button data-view="map" onclick="switchView('map')">MAP</button>
+      <button onclick="window.open('/ask','_blank')" style="background:#1a1f2e;color:#c3a6ff;border:1px solid #c3a6ff;margin-left:8px">ASK</button>
+    </div>
+    <div class="stats" id="stats">
+      <div class="stat"><span class="n" id="stat-obs">-</span><span class="label">observations</span></div>
+      <div class="stat"><span class="n" id="stat-anom">-</span><span class="label">anomalies</span></div>
+      <div class="stat"><span class="n" id="stat-conn">-</span><span class="label">connections</span></div>
+      <div class="stat"><span class="n" id="stat-msgs">-</span><span class="label">messages</span></div>
+      <div class="stat"><span class="n" id="stat-cam-active" style="color:var(--green)">-</span><span class="label">active /</span><span class="n" id="stat-cam-dead" style="color:var(--red);margin-left:4px">-</span><span class="label">dead cams</span></div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <!-- Log panel -->
+    <div class="log-panel" id="log-panel">
+      <div class="log-header">
+        <span>Activity Log</span>
+        <div class="log-filters">
+          <button class="active" data-level="all">ALL</button>
+          <button data-level="INFO">INFO</button>
+          <button data-level="WARNING">WARN</button>
+          <button data-level="ERROR">ERR</button>
+        </div>
+      </div>
+      <div class="thinking-bar" id="thinking-bar"></div>
+      <div class="log-body" id="log-body"></div>
+    </div>
+
+    <!-- Horizontal resize handle -->
+    <div class="resize-h" id="resize-h"></div>
+
+    <!-- Images panel -->
+    <div class="images-panel" id="images-panel">
+      <div class="images-header">Camera Feed</div>
+      <div class="images-grid" id="images-grid">
+        <div class="no-images">Waiting for camera data...</div>
+      </div>
+    </div>
+
+    <!-- Map panel (hidden by default) -->
+    <div class="map-panel" id="map-panel">
+      <div class="map-container">
+        <div id="london-map"></div>
+      </div>
+      <div class="map-stats" id="map-stats">
+        <div class="map-stat"><span class="n" id="map-anom-count">0</span> anomalies</div>
+        <div class="map-stat"><span class="n" id="map-obs-count">0</span> observations</div>
+        <div class="map-stat"><span class="n" id="map-disc-count">0</span> discoveries</div>
+      </div>
+      <div class="map-legend">
+        <div class="legend-title">Activity</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e85454;box-shadow:0 0 6px #e85454"></div>Severe anomaly (4-5)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#e8b84a;box-shadow:0 0 6px #e8b84a"></div>Anomaly (2-3)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#7ec87e;box-shadow:0 0 4px #7ec87e"></div>Mild anomaly (1)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#5ccfe6;opacity:0.5"></div>Observation</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#c49bdb;box-shadow:0 0 8px #c49bdb"></div>Discovery</div>
+        <div class="legend-title" style="margin-top:8px">Retina Attention</div>
+        <div class="legend-item"><div class="retina-legend-dot" style="background:#5ccfe6;box-shadow:0 0 8px #5ccfe6"></div>Full attention (fovea)</div>
+        <div class="legend-item"><div class="retina-legend-dot" style="background:#a78bfa;box-shadow:0 0 6px #7c3aed"></div>Monitoring (perifovea)</div>
+        <div class="legend-item" style="gap:6px"><label style="display:flex;align-items:center;gap:5px;cursor:pointer;color:var(--fg);font-size:11px"><input type="checkbox" id="retina-toggle" checked onchange="toggleRetinaOverlay(this.checked)" style="accent-color:var(--cyan)"> Retina overlay</label></div>
+        <div id="retina-compression-stat" style="color:var(--dim);font-size:9px;margin-top:4px;line-height:1.3;padding-left:2px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vertical resize handle between main and bottom -->
+  <div class="resize-v" id="resize-v"></div>
+
+  <!-- Bottom section: sources left, claude+discoveries right -->
+  <div class="bottom-section" id="bottom-section" style="display:flex;flex-direction:row;min-height:160px;height:280px;flex-shrink:0;overflow:hidden;border-top:1px solid var(--border)">
+    <!-- Sources panel (vertical, left) -->
+    <div class="sources-panel" id="sources-panel">
+      <div class="sources-header">
+        <span>Data Sources</span>
+        <span id="task-count" style="color:var(--cyan)"></span>
+      </div>
+      <div class="sources-scroll" id="sources-scroll"></div>
+    </div>
+
+    <!-- Resize handle between sources and right side -->
+    <div class="resize-h" id="resize-h-sources"></div>
+
+    <!-- Right side: Claude + Discoveries stacked -->
+    <div style="flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden">
+      <!-- Claude Code instances -->
+      <div class="claude-panel">
+        <div class="claude-header">
+          <span>Claude Code Instances</span>
+          <span id="claude-count" style="color:var(--cyan)"></span>
+        </div>
+        <div class="claude-body" id="claude-body">
+          <div class="claude-empty">No instances yet</div>
+        </div>
+      </div>
+
+      <!-- Agent Channels (Slack/Discord style) -->
+      <div class="channels-panel">
+        <div class="channel-sidebar">
+          <div class="channel-sidebar-header">Channels</div>
+          <div class="channel-list" id="channel-list"></div>
+        </div>
+        <div class="channel-messages">
+          <div class="channel-msg-header" id="channel-msg-header">
+            <span id="channel-title">#discoveries</span>
+            <span class="ch-desc" id="channel-desc">Brain synthesis and findings</span>
+          </div>
+          <div class="channel-msg-body" id="channel-msg-body">
+            <div class="ch-msg-empty">Waiting for messages...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" onclick="this.classList.remove('show')">
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<!-- Claude instance detail modal -->
+<div class="claude-modal" id="claude-modal" onclick="if(event.target===this)this.classList.remove('show')">
+  <div class="claude-modal-content">
+    <div class="claude-modal-header">
+      <h3 id="cm-title">Instance</h3>
+      <button class="claude-modal-close" onclick="document.getElementById('claude-modal').classList.remove('show')">&times;</button>
+    </div>
+    <div class="claude-modal-body" id="cm-body"></div>
+  </div>
+</div>
+
+<script>
+const logBody = document.getElementById('log-body');
+const thinkingBar = document.getElementById('thinking-bar');
+const imagesGrid = document.getElementById('images-grid');
+const sourcesScroll = document.getElementById('sources-scroll');
+const lightbox = document.getElementById('lightbox');
+const lightboxImg = document.getElementById('lightbox-img');
+
+// Channel system
+const channelList = document.getElementById('channel-list');
+const channelMsgBody = document.getElementById('channel-msg-body');
+const channelTitle = document.getElementById('channel-title');
+const channelDesc = document.getElementById('channel-desc');
+
+let logFilter = 'all';
+let logEntries = [];
+const MAX_LOG = 800;
+let thinkingTimeout = null;
+
+// Log filter buttons
+document.querySelectorAll('.log-filters button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.log-filters button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    logFilter = btn.dataset.level;
+    renderLogs();
+  });
+});
+
+function renderLogs() {
+  const filtered = logFilter === 'all' ? logEntries : logEntries.filter(e => e.level === logFilter);
+  // Only show last 300
+  const visible = filtered.slice(-300);
+  logBody.innerHTML = visible.map(e =>
+    `<div class="log-entry ${e.level}${e._latest ? ' thinking' : ''}">` +
+      `<span class="time">${e.time}</span>` +
+      `<span class="source">${e.name}</span>` +
+      `<span class="msg">${escHtml(e.msg)}</span>` +
+    `</div>`
+  ).join('');
+  logBody.scrollTop = logBody.scrollHeight;
+}
+
+function addLog(entry) {
+  // Remove "thinking" flag from previous latest
+  if (logEntries.length > 0) {
+    logEntries[logEntries.length - 1]._latest = false;
+  }
+  entry._latest = true;
+  logEntries.push(entry);
+  if (logEntries.length > MAX_LOG) logEntries.shift();
+
+  // Show thinking animation
+  thinkingBar.classList.add('active');
+  clearTimeout(thinkingTimeout);
+  thinkingTimeout = setTimeout(() => thinkingBar.classList.remove('active'), 3000);
+
+  // Append directly if filter matches (fast path)
+  if (logFilter === 'all' || entry.level === logFilter) {
+    // Remove thinking class from previous
+    const prev = logBody.querySelector('.thinking');
+    if (prev) prev.classList.remove('thinking');
+
+    const div = document.createElement('div');
+    div.className = `log-entry ${entry.level} thinking`;
+    div.innerHTML =
+      `<span class="time">${entry.time}</span>` +
+      `<span class="source">${entry.name}</span>` +
+      `<span class="msg">${escHtml(entry.msg)}</span>`;
+    logBody.appendChild(div);
+
+    // Trim DOM
+    while (logBody.children.length > 300) logBody.removeChild(logBody.firstChild);
+    logBody.scrollTop = logBody.scrollHeight;
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// WebSocket
+function connectWs() {
+  const ws = new WebSocket(`ws://${location.host}/ws`);
+  ws.onmessage = (evt) => {
+    const msg = JSON.parse(evt.data);
+    if (msg.type === 'log') addLog(msg.data);
+  };
+  ws.onclose = () => setTimeout(connectWs, 2000);
+  ws.onerror = () => ws.close();
+}
+connectWs();
+
+// Polling: stats
+async function fetchStats() {
+  try {
+    const r = await fetch('/api/stats');
+    const d = await r.json();
+    document.getElementById('stat-obs').textContent = fmt(d.observations || 0);
+    document.getElementById('stat-anom').textContent = fmt(d.anomalies || 0);
+    document.getElementById('stat-conn').textContent = fmt(d.connections || 0);
+    document.getElementById('stat-msgs').textContent = fmt(d.messages || 0);
+  } catch(e) {}
+}
+
+// Polling: tasks
+async function fetchTasks() {
+  try {
+    const r = await fetch('/api/tasks');
+    const tasks = await r.json();
+    const names = Object.keys(tasks).sort();
+    document.getElementById('task-count').textContent = `${names.length} tasks`;
+    sourcesScroll.innerHTML = names.map(name => {
+      const t = tasks[name];
+      const errs = t.consecutive_errors || 0;
+      const dotClass = errs > 2 ? 'err' : errs > 0 ? 'warn' : 'ok';
+      const ago = t.last_success ? timeAgo(t.last_success) : 'never';
+      const interval = Math.round(t.current_interval) + 's';
+      return `<div class="source-card">` +
+        `<div class="name"><span class="dot ${dotClass}"></span>${shortName(name)}</div>` +
+        `<div class="detail">${ago} &middot; ${interval}${errs ? ' &middot; <span style="color:var(--red)">' + errs + ' err</span>' : ''}</div>` +
+      `</div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+// Polling: images
+function fmtImgTime(epoch) {
+  const d = new Date(epoch * 1000);
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mi = String(d.getMinutes()).padStart(2,'0');
+  return `${dd}/${mm} ${hh}:${mi}`;
+}
+async function fetchImages() {
+  try {
+    const r = await fetch('/api/images');
+    const imgs = await r.json();
+    if (imgs.length === 0) return;
+    imagesGrid.innerHTML = imgs.map(img => {
+      const name = typeof img === 'string' ? img : img.name;
+      const ts = typeof img === 'object' && img.mtime ? fmtImgTime(img.mtime) : '';
+      return `<div class="img-card" onclick="showFull('${name}')">` +
+        `<img src="/images/thumbs/${name}" loading="lazy" alt="">` +
+        `<div class="overlay">${ts}</div>` +
+      `</div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+// ── Channel system (Slack/Discord style) ──────────────────────────────────
+const CHANNELS = [
+  { id: '#discoveries', label: 'discoveries', desc: 'Brain synthesis and verified findings' },
+  { id: '#hypotheses', label: 'hypotheses', desc: 'Cross-source connections and narratives' },
+  { id: '#anomalies', label: 'anomalies', desc: 'Detected anomalies from sensors' },
+  { id: '#requests', label: 'requests', desc: 'Agent-to-agent questions and investigations' },
+  { id: '#meta', label: 'meta', desc: 'Agent reasoning and system status' },
+];
+
+let activeChannel = '#discoveries';
+const channelData = {};       // channel -> [messages]
+const channelKnownIds = {};   // channel -> Set of known message ids
+const channelUnread = {};     // channel -> unread count since last viewed
+const agentColors = {};
+const colorPool = ['#c49bdb', '#5ccfe6', '#7ec87e', '#e8b84a', '#5c9ce6', '#e85454', '#d4a0e0', '#7dd3c0', '#e0c97a', '#9bb8e6'];
+let colorIdx = 0;
+
+CHANNELS.forEach(ch => {
+  channelData[ch.id] = [];
+  channelKnownIds[ch.id] = new Set();
+  channelUnread[ch.id] = 0;
+});
+
+function getAgentColor(name) {
+  if (!agentColors[name]) {
+    agentColors[name] = colorPool[colorIdx % colorPool.length];
+    colorIdx++;
+  }
+  return agentColors[name];
+}
+
+function renderChannelSidebar() {
+  channelList.innerHTML = CHANNELS.map(ch => {
+    const isActive = ch.id === activeChannel;
+    const unread = channelUnread[ch.id] || 0;
+    const badgeClass = ch.id === '#anomalies' ? 'urgent' : '';
+    return `<div class="channel-item${isActive ? ' active' : ''}" data-channel="${ch.id}" onclick="switchChannel('${ch.id}')">` +
+      `<span class="ch-hash">#</span>` +
+      `<span class="ch-name">${ch.label}</span>` +
+      `<span class="ch-badge ${badgeClass} ${unread === 0 ? 'hidden' : ''}">${unread > 99 ? '99+' : unread}</span>` +
+    `</div>`;
+  }).join('');
+}
+
+function switchChannel(chId) {
+  activeChannel = chId;
+  channelUnread[chId] = 0;
+  const chInfo = CHANNELS.find(c => c.id === chId);
+  channelTitle.textContent = chId;
+  channelDesc.textContent = chInfo ? chInfo.desc : '';
+  renderChannelSidebar();
+  renderChannelMessages();
+}
+
+function renderChannelMessages() {
+  const msgs = channelData[activeChannel] || [];
+  if (!msgs.length) {
+    channelMsgBody.innerHTML = '<div class="ch-msg-empty">No messages in this channel yet...</div>';
+    return;
+  }
+  // Show oldest first (API returns newest first, we reverse)
+  const sorted = [...msgs].reverse();
+  channelMsgBody.innerHTML = sorted.map(m => {
+    const sender = m.from_agent || m.sender || 'system';
+    const color = getAgentColor(sender);
+    const time = m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+    const content = m.content || '';
+    const to = m.to_agent ? ` &rarr; <span style="color:${getAgentColor(m.to_agent)}">${escHtml(m.to_agent)}</span>` : '';
+    const priority = m.priority && m.priority > 5 ? `<span class="ch-msg-priority" style="background:var(--red);color:var(--bg)">P${m.priority}</span>` :
+                     m.priority && m.priority > 3 ? `<span class="ch-msg-priority" style="background:var(--amber);color:var(--bg)">P${m.priority}</span>` : '';
+    return `<div class="ch-msg">` +
+      `<span class="ch-msg-meta">` +
+        `<span class="ch-msg-sender" style="color:${color}">${escHtml(sender)}</span>${to}` +
+        `<span class="ch-msg-time">${time}</span>${priority}` +
+      `</span>` +
+      `<div class="ch-msg-text">${escHtml(content)}</div>` +
+    `</div>`;
+  }).join('');
+  channelMsgBody.scrollTop = channelMsgBody.scrollHeight;
+}
+
+async function fetchChannels() {
+  try {
+    const r = await fetch('/api/channels');
+    const data = await r.json();
+    let anyNew = false;
+    for (const [chId, msgs] of Object.entries(data)) {
+      if (!channelKnownIds[chId]) { channelKnownIds[chId] = new Set(); channelData[chId] = []; channelUnread[chId] = 0; }
+      let newInChannel = 0;
+      msgs.forEach(m => {
+        const mid = m.id || m.timestamp + (m.content || '').slice(0, 30);
+        if (!channelKnownIds[chId].has(mid)) {
+          channelKnownIds[chId].add(mid);
+          newInChannel++;
+        }
+      });
+      channelData[chId] = msgs;
+      if (newInChannel > 0 && chId !== activeChannel) {
+        channelUnread[chId] = (channelUnread[chId] || 0) + newInChannel;
+        anyNew = true;
+        // Flash the channel item
+        const el = channelList.querySelector(`[data-channel="${chId}"]`);
+        if (el) { el.classList.remove('new-msg'); void el.offsetWidth; el.classList.add('new-msg'); }
+      }
+    }
+    renderChannelSidebar();
+    renderChannelMessages();
+  } catch(e) {}
+}
+
+// Initialize
+renderChannelSidebar();
+
+function showFull(name) {
+  // Try full-size first, fall back to thumbnail
+  const full = new Image();
+  full.onload = () => { lightboxImg.src = full.src; lightbox.classList.add('show'); };
+  full.onerror = () => { lightboxImg.src = `/images/thumbs/${name}`; lightbox.classList.add('show'); };
+  lightboxImg.src = '';
+  full.src = `/images/full/${name}`;
+}
+
+function fmt(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return String(n);
+}
+
+function timeAgo(iso) {
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  return Math.floor(s/3600) + 'h ago';
+}
+
+function shortName(name) {
+  return name.replace(/^ingest_/, '').replace(/_/g, ' ');
+}
+
+// Polling: camera health
+async function fetchCameras() {
+  try {
+    const r = await fetch('/api/cameras');
+    const d = await r.json();
+    const c = d.counts || {};
+    document.getElementById('stat-cam-active').textContent = (c.active || 0) + (c.suspect || 0);
+    document.getElementById('stat-cam-dead').textContent = c.dead || 0;
+  } catch(e) {}
+}
+
+// Resizable panes
+(function() {
+  const resizeH = document.getElementById('resize-h');
+  const logPanel = document.getElementById('log-panel');
+  const imagesPanel = document.getElementById('images-panel');
+  const resizeV = document.getElementById('resize-v');
+  const mainArea = document.querySelector('.main');
+  const bottomSection = document.getElementById('bottom-section');
+
+  // Horizontal resize (log <-> images)
+  let draggingH = false;
+  resizeH.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    draggingH = true;
+    resizeH.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  // Vertical resize (main <-> bottom)
+  let draggingV = false;
+  resizeV.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    draggingV = true;
+    resizeV.classList.add('active');
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  // Horizontal resize (sources panel width)
+  const resizeHSources = document.getElementById('resize-h-sources');
+  const sourcesPanel = document.getElementById('sources-panel');
+  let draggingHS = false;
+  resizeHSources.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    draggingHS = true;
+    resizeHSources.classList.add('active');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (draggingH) {
+      const container = mainArea.getBoundingClientRect();
+      const x = e.clientX - container.left;
+      const minLog = 200, minImg = 150;
+      const logW = Math.max(minLog, Math.min(x - 3, container.width - minImg - 6));
+      logPanel.style.flex = 'none';
+      logPanel.style.width = logW + 'px';
+      imagesPanel.style.width = (container.width - logW - 6) + 'px';
+      imagesPanel.style.flex = 'none';
+    }
+    if (draggingV) {
+      const dashboard = document.querySelector('.dashboard');
+      const rect = dashboard.getBoundingClientRect();
+      const header = document.querySelector('.header').offsetHeight;
+      const available = rect.height - header - 6; // 6 for handle
+      const y = e.clientY - rect.top - header;
+      const minMain = 150, minBottom = 120;
+      const mainH = Math.max(minMain, Math.min(y - 3, available - minBottom));
+      mainArea.style.flex = 'none';
+      mainArea.style.height = mainH + 'px';
+      bottomSection.style.height = (available - mainH) + 'px';
+    }
+    if (draggingHS) {
+      const container = bottomSection.getBoundingClientRect();
+      const x = e.clientX - container.left;
+      const newW = Math.max(100, Math.min(x - 3, container.width - 300));
+      sourcesPanel.style.width = newW + 'px';
+    }
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (draggingH) { draggingH = false; resizeH.classList.remove('active'); }
+    if (draggingV) { draggingV = false; resizeV.classList.remove('active'); }
+    if (draggingHS) { draggingHS = false; resizeHSources.classList.remove('active'); }
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  });
+})();
+
+// Polling: Claude Code instances
+const claudeBody = document.getElementById('claude-body');
+async function fetchClaudeInstances() {
+  try {
+    const r = await fetch('/api/claude_instances');
+    const instances = await r.json();
+    const running = instances.filter(i => i.running);
+    document.getElementById('claude-count').textContent = running.length ? running.length + ' running' : '';
+    if (!instances.length) {
+      claudeBody.innerHTML = '<div class="claude-empty">No instances yet</div>';
+      return;
+    }
+    claudeBody.innerHTML = instances.map(i => {
+      const cls = i.running ? 'running' : 'done';
+      const status = i.running ? `<span style="color:var(--green)">running</span> ${i.elapsed_s}s` : `rc=${i.return_code}`;
+      const started = new Date(i.started).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      return `<div class="claude-card ${cls}" onclick="showClaudeDetail('${i.id}')" style="cursor:pointer">` +
+        `<div class="cc-id">${i.running ? '<span class="pulse-dot" style="width:6px;height:6px"></span>' : ''}${i.id}</div>` +
+        `<div class="cc-prompt" title="${escHtml(i.prompt)}">${escHtml(i.prompt)}</div>` +
+        `<div class="cc-meta"><span>${started}</span><span>${status}</span></div>` +
+      `</div>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function showClaudeDetail(id) {
+  const modal = document.getElementById('claude-modal');
+  const body = document.getElementById('cm-body');
+  const title = document.getElementById('cm-title');
+  title.textContent = `Instance ${id}`;
+  body.innerHTML = '<div style="color:var(--dim);padding:20px;text-align:center">Loading...</div>';
+  modal.classList.add('show');
+  try {
+    const r = await fetch(`/api/claude_instance?id=${id}`);
+    const d = await r.json();
+    if (d.error) { body.innerHTML = `<div style="color:var(--red)">${escHtml(d.error)}</div>`; return; }
+    const statusColor = d.running ? 'var(--green)' : (d.return_code === 0 ? 'var(--cyan)' : 'var(--red)');
+    const statusText = d.running ? 'Running' : (d.return_code === 0 ? 'Completed' : `Failed (rc=${d.return_code})`);
+    const started = new Date(d.started).toLocaleString();
+    const completed = d.completed ? new Date(d.completed).toLocaleString() : '—';
+    const duration = d.duration_s != null ? `${d.duration_s}s` : `${d.elapsed_s}s (running)`;
+    const stdout = (d.stdout || []).join('\n') || '(no output)';
+    const stderr = (d.stderr || []).join('\n');
+    title.innerHTML = `Instance <span style="color:var(--cyan)">${escHtml(d.id)}</span>`;
+    body.innerHTML =
+      `<div class="cm-section"><div class="cm-label">Status</div><div class="cm-meta">` +
+        `<span><span class="label">Status:</span> <span style="color:${statusColor}">${statusText}</span></span>` +
+        `<span><span class="label">Started:</span> ${started}</span>` +
+        `<span><span class="label">Completed:</span> ${completed}</span>` +
+        `<span><span class="label">Duration:</span> ${duration}</span>` +
+      `</div></div>` +
+      `<div class="cm-section"><div class="cm-label">Prompt</div><div class="cm-prompt">${escHtml(d.prompt)}</div></div>` +
+      `<div class="cm-section"><div class="cm-label">Output</div><div class="cm-output">${escHtml(stdout)}</div></div>` +
+      (stderr ? `<div class="cm-section"><div class="cm-label" style="color:var(--red)">Stderr</div><div class="cm-output" style="border-color:rgba(232,84,84,.3)">${escHtml(stderr)}</div></div>` : '');
+  } catch(e) {
+    body.innerHTML = `<div style="color:var(--red)">Failed to load: ${escHtml(String(e))}</div>`;
+  }
+}
+
+// ── Map View ────────────────────────────────────────────────────────────────
+let map = null;
+let mapLayers = { anomalies: null, observations: null, discoveries: null };
+let currentView = 'log';
+let mapInterval = null;
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-toggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === view);
+  });
+
+  const logPanel = document.getElementById('log-panel');
+  const resizeH = document.getElementById('resize-h');
+  const imagesPanel = document.getElementById('images-panel');
+  const mapPanel = document.getElementById('map-panel');
+
+  if (view === 'map') {
+    logPanel.style.display = 'none';
+    resizeH.style.display = 'none';
+    imagesPanel.style.display = 'none';
+    mapPanel.classList.add('active');
+    initMap();
+    fetchMapData();
+    fetchRetinaData();
+    if (!mapInterval) mapInterval = setInterval(() => { fetchMapData(); fetchRetinaData(); }, 15000);
+  } else {
+    logPanel.style.display = '';
+    resizeH.style.display = '';
+    imagesPanel.style.display = '';
+    mapPanel.classList.remove('active');
+    if (mapInterval) { clearInterval(mapInterval); mapInterval = null; }
+  }
+}
+
+function initMap() {
+  if (map) { map.invalidateSize(); return; }
+  map = L.map('london-map', {
+    center: [51.505, -0.09],
+    zoom: 11,
+    zoomControl: true,
+    attributionControl: true,
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19,
+  }).addTo(map);
+  // Override the dark tile filter since CartoDB dark tiles are already dark
+  document.querySelector('.leaflet-tile-pane').style.filter = 'none';
+
+  mapLayers.anomalies = L.layerGroup().addTo(map);
+  mapLayers.observations = L.layerGroup().addTo(map);
+  mapLayers.discoveries = L.layerGroup().addTo(map);
+  mapLayers.retina = L.layerGroup().addTo(map);
+  mapLayers.saccadeTrails = L.layerGroup().addTo(map);
+
+  // Retina stats panel (top-right Leaflet control)
+  const retinaControl = L.control({position: 'topright'});
+  retinaControl.onAdd = function() {
+    const div = L.DomUtil.create('div', 'retina-panel');
+    div.id = 'retina-panel';
+    div.innerHTML = '<div class="retina-title">The City\'s Retina</div><div id="retina-panel-body">Waiting for data...</div>';
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
+    return div;
+  };
+  retinaControl.addTo(map);
+}
+
+function severityColor(sev) {
+  if (sev >= 4) return '#e85454';
+  if (sev >= 2) return '#e8b84a';
+  return '#7ec87e';
+}
+
+function severityRadius(sev) {
+  if (sev >= 4) return 10;
+  if (sev >= 2) return 7;
+  return 5;
+}
+
+function severityLabel(sev) {
+  const labels = {1:'LOW',2:'MODERATE',3:'ELEVATED',4:'HIGH',5:'CRITICAL'};
+  return labels[sev] || 'UNKNOWN';
+}
+
+function renderObservationDots(data) {
+  mapLayers.observations.clearLayers();
+
+  // Group by cell, tracking max zone per cell
+  const obsByCell = {};
+  data.observations.forEach(o => {
+    const key = o.location_id || `${o.lat.toFixed(3)},${o.lon.toFixed(3)}`;
+    if (!obsByCell[key]) obsByCell[key] = { lat: o.lat, lon: o.lon, sources: new Set(), count: 0, items: [], maxZone: 0 };
+    obsByCell[key].sources.add(o.source);
+    obsByCell[key].count++;
+    obsByCell[key].maxZone = Math.max(obsByCell[key].maxZone, o.zone || 0);
+    if (obsByCell[key].items.length < 8) obsByCell[key].items.push(o);
+  });
+
+  // Compression stats
+  const total = data.obs_total || data.observations.length;
+  const focused = data.obs_focused || 0;
+  const compEl = document.getElementById('retina-compression-stat');
+  if (compEl) {
+    if (retinaVisible && total > 0) {
+      const pct = Math.round(100 * (total - focused) / total);
+      compEl.innerHTML = `Focusing on <span style="color:#5ccfe6">${focused}</span> of ${total} obs &mdash; <span style="color:var(--green)">${pct}% compressed</span>`;
+    } else {
+      compEl.innerHTML = '';
+    }
+  }
+
+  Object.values(obsByCell).forEach(cell => {
+    const inFocus = cell.maxZone >= 1; // fovea or perifovea
+
+    // Retina ON  → only show focused dots (compression demo)
+    // Retina OFF → show ALL dots (proves city-wide collection)
+    if (retinaVisible && !inFocus) return;
+
+    // When retina is off, all dots same style; when on, only focused shown anyway
+    const fillOpacity = retinaVisible ? 0.45 : 0.25;
+    const opacity = retinaVisible ? 0.6 : 0.4;
+    const weight = retinaVisible ? 1 : 0.5;
+    const color = '#5ccfe6';
+    const radius = Math.min(3 + Math.log2(cell.count), 8);
+
+    const sources = [...cell.sources].join(', ');
+    L.circleMarker([cell.lat, cell.lon], {
+      radius, color, fillColor: color, fillOpacity, weight, opacity,
+    }).bindPopup(
+      `<div class="map-popup">` +
+      `<div class="popup-source">${escHtml(sources)}</div>` +
+      `<div class="popup-desc">${cell.count} observation${cell.count>1?'s':''}</div>` +
+      cell.items.map(o => {
+        const time = o.timestamp ? new Date(o.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+        const label = o.station || o.site_name || o.name || o.road || o.camera_id || '';
+        const detail = o.description || o.category || o.species || o.pollutant || o.obs_type || '';
+        const val = o.value != null ? o.value : '';
+        const unit = o.unit || '';
+        return `<div style="border-top:1px solid #1e2a3a;padding:3px 0;margin-top:3px">` +
+          `<span style="color:#5ccfe6">${escHtml(o.source)}</span>` +
+          (label ? ` <span style="color:#c0c8d8">· ${escHtml(String(label))}</span>` : '') +
+          (detail ? `<div style="color:#8a95aa;font-size:10px">${escHtml(String(detail))}</div>` : '') +
+          (val !== '' ? `<div style="color:#c0c8d8;font-size:10px">${escHtml(String(val))}${unit ? ' '+escHtml(unit) : ''}</div>` : '') +
+          `<div style="color:#5a6580;font-size:9px">${time}</div>` +
+        `</div>`;
+      }).join('') +
+      (cell.count > 8 ? `<div style="color:#5a6580;font-size:10px;margin-top:4px">+${cell.count - 8} more</div>` : '') +
+      `</div>`, {maxWidth: 350}
+    ).addTo(mapLayers.observations);
+  });
+}
+
+async function fetchMapData() {
+  if (currentView !== 'map' || !map) return;
+  try {
+    const r = await fetch('/api/map_data');
+    const data = await r.json();
+
+    // Update counts
+    document.getElementById('map-anom-count').textContent = data.anomalies.length;
+    document.getElementById('map-obs-count').textContent = data.observations.length;
+    document.getElementById('map-disc-count').textContent = data.discoveries.length;
+
+    // Clear old markers
+    mapLayers.anomalies.clearLayers();
+    mapLayers.discoveries.clearLayers();
+
+    // Render observation dots (handles its own clearLayers + zone filtering)
+    lastMapData = data;
+    renderObservationDots(data);
+
+    // Anomaly markers (prominent, glowing)
+    data.anomalies.forEach(a => {
+      const color = severityColor(a.severity);
+      const radius = severityRadius(a.severity);
+      const time = a.timestamp ? new Date(a.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+
+      // Outer glow
+      L.circleMarker([a.lat, a.lon], {
+        radius: radius + 6,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.08,
+        weight: 0,
+      }).addTo(mapLayers.anomalies);
+
+      // Inner marker
+      L.circleMarker([a.lat, a.lon], {
+        radius: radius,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.7,
+        weight: 2,
+        opacity: 0.9,
+      }).bindPopup(
+        `<div class="map-popup">` +
+        `<div class="popup-source">${escHtml(a.source)}</div>` +
+        (a.location_id ? `<div style="color:#5a6580;font-size:10px">${escHtml(a.location_id)}</div>` : '') +
+        `<div class="popup-desc">${escHtml(a.description)}</div>` +
+        `<div class="popup-meta">` +
+          `<span class="popup-severity" style="background:${color};color:#0a0e14">${severityLabel(a.severity)}</span> ` +
+          `z-score: ${a.z_score?.toFixed(1) || '?'} &middot; ${time}` +
+        `</div>` +
+        `</div>`, {maxWidth: 350}
+      ).addTo(mapLayers.anomalies);
+
+      // Pulse animation for severe anomalies
+      if (a.severity >= 4) {
+        L.circleMarker([a.lat, a.lon], {
+          radius: radius + 12,
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.05,
+          weight: 1,
+          opacity: 0.3,
+          className: 'anomaly-pulse',
+        }).addTo(mapLayers.anomalies);
+      }
+    });
+
+    // Discovery markers (star-like, purple)
+    data.discoveries.forEach(d => {
+      L.circleMarker([d.lat, d.lon], {
+        radius: 8,
+        color: '#c49bdb',
+        fillColor: '#c49bdb',
+        fillOpacity: 0.6,
+        weight: 2,
+        opacity: 0.9,
+      }).bindPopup(
+        `<div class="map-popup" style="max-height:250px;overflow-y:auto">` +
+        `<div class="popup-source" style="color:#c49bdb">${escHtml(d.from_agent)}</div>` +
+        (d.location_id ? `<div style="color:#5a6580;font-size:10px">${escHtml(d.location_id)}</div>` : '') +
+        `<div class="popup-desc" style="white-space:pre-wrap">${escHtml(d.content)}</div>` +
+        `<div class="popup-meta">${d.timestamp ? new Date(d.timestamp).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : ''}</div>` +
+        `</div>`, {maxWidth: 420}
+      ).addTo(mapLayers.discoveries);
+
+      // Glow
+      L.circleMarker([d.lat, d.lon], {
+        radius: 14,
+        color: '#c49bdb',
+        fillColor: '#c49bdb',
+        fillOpacity: 0.06,
+        weight: 0,
+      }).addTo(mapLayers.discoveries);
+    });
+
+  } catch(e) {
+    console.error('Map data fetch error:', e);
+  }
+}
+
+// Start polling
+fetchStats(); fetchTasks(); fetchImages(); fetchChannels(); fetchCameras(); fetchClaudeInstances();
+setInterval(fetchStats, 15000);
+setInterval(fetchTasks, 10000);
+setInterval(fetchImages, 30000);
+setInterval(fetchChannels, 15000);
+setInterval(fetchCameras, 30000);
+setInterval(fetchClaudeInstances, 10000);
+
+// ── Retina Overlay ──────────────────────────────────────────────────────────
+let retinaVisible = true;
+let lastMapData = null;
+let prevCellZones = new Map(); // cell_id -> zone_level (for transition detection)
+let lastSaccadeTs = 0;        // track new saccades
+
+function toggleRetinaOverlay(show) {
+  retinaVisible = show;
+  if (!map) return;
+  if (show) {
+    map.addLayer(mapLayers.retina);
+    map.addLayer(mapLayers.saccadeTrails);
+    // Immediately redraw retina circles (they weren't drawn while OFF)
+    fetchRetinaData();
+  } else {
+    map.removeLayer(mapLayers.retina);
+    map.removeLayer(mapLayers.saccadeTrails);
+  }
+  // Show/hide retina stats panel
+  const panel = document.getElementById('retina-panel');
+  if (panel) panel.style.display = show ? '' : 'none';
+  // Re-render observations with new zone visibility
+  if (lastMapData) renderObservationDots(lastMapData);
+}
+
+// ── Clustering: group nearby fovea/perifovea cells into spotlight clusters ──
+function clusterRetinaCells(cells) {
+  // Separate fovea and perifovea
+  const fovea = cells.filter(c => c.zone === 'FOVEA');
+  const peri = cells.filter(c => c.zone === 'PERIFOVEA');
+
+  // Cluster fovea cells by proximity (simple greedy: merge if within ~0.015 deg ≈ 1.5km)
+  const CLUSTER_DIST = 0.015;
+  const clusters = [];
+  const used = new Set();
+
+  fovea.forEach(c => {
+    if (used.has(c.id)) return;
+    const cluster = { fovea: [c], peri: [], lat: c.lat, lon: c.lon };
+    used.add(c.id);
+
+    // Grow cluster with nearby fovea cells
+    fovea.forEach(c2 => {
+      if (used.has(c2.id)) return;
+      if (Math.abs(c2.lat - cluster.lat) < CLUSTER_DIST * 2 && Math.abs(c2.lon - cluster.lon) < CLUSTER_DIST * 2) {
+        cluster.fovea.push(c2);
+        used.add(c2.id);
+      }
+    });
+
+    // Recompute centroid
+    cluster.lat = cluster.fovea.reduce((s, c) => s + c.lat, 0) / cluster.fovea.length;
+    cluster.lon = cluster.fovea.reduce((s, c) => s + c.lon, 0) / cluster.fovea.length;
+
+    // Attach nearby perifovea cells
+    peri.forEach(p => {
+      if (Math.abs(p.lat - cluster.lat) < CLUSTER_DIST * 3 && Math.abs(p.lon - cluster.lon) < CLUSTER_DIST * 3) {
+        cluster.peri.push(p);
+      }
+    });
+
+    // Compute cluster radius from furthest member cell
+    let maxDist = 0;
+    [...cluster.fovea, ...cluster.peri].forEach(m => {
+      const d = Math.sqrt(Math.pow(m.lat - cluster.lat, 2) + Math.pow((m.lon - cluster.lon) * 0.63, 2));
+      if (d > maxDist) maxDist = d;
+    });
+    cluster.radiusDeg = maxDist;
+
+    // Aggregate stats
+    cluster.interest = Math.max(...cluster.fovea.map(c => c.interest || 0));
+    cluster.totalAnomalies = cluster.fovea.reduce((s, c) => s + (c.anomaly_count || 0), 0);
+    cluster.totalObs = cluster.fovea.reduce((s, c) => s + (c.obs_total || 0), 0);
+    cluster.totalStored = cluster.fovea.reduce((s, c) => s + (c.obs_stored || 0), 0);
+    cluster.totalDropped = cluster.fovea.reduce((s, c) => s + (c.obs_dropped || 0), 0);
+    cluster.reason = cluster.fovea.find(c => c.reason)?.reason || '';
+
+    clusters.push(cluster);
+  });
+
+  return clusters;
+}
+
+let _retinaFetching = false;
+async function fetchRetinaData() {
+  if (currentView !== 'map' || !map) return;
+  if (_retinaFetching) return; // prevent concurrent fetches clearing each other
+  _retinaFetching = true;
+  try {
+    const r = await fetch('/api/retina');
+    const data = await r.json();
+    const cells = data.cells || [];
+    const stats = data.stats || {};
+    const saccades = data.recent_saccades || [];
+
+    // Update stats panel
+    const panelBody = document.getElementById('retina-panel-body');
+    if (panelBody) {
+      const cr = stats.compression_ratio || 0;
+      const watching = (stats.fovea_count || 0) + (stats.perifovea_count || 0);
+      const compressed = stats.periphery_count || 0;
+      panelBody.innerHTML =
+        `<div class="compression-row">` +
+          `<span class="label">Savings</span>` +
+          `<div class="compression-bar"><div class="compression-fill" style="width:${cr}%"></div></div>` +
+          `<span class="value" style="color:var(--green);min-width:40px;text-align:right">${cr}%</span>` +
+        `</div>` +
+        `<div style="color:var(--dim);font-size:10px;padding:2px 0 6px;line-height:1.4">` +
+          `Watching <span style="color:#5ccfe6;font-weight:600">${watching}</span> zones at full resolution, ` +
+          `compressing <span style="color:var(--fg);font-weight:600">${fmt(compressed)}</span> quiet zones` +
+        `</div>` +
+        `<div class="retina-stat"><span class="label">Full attention <span style="color:var(--dim)">(fovea)</span></span><span class="value" style="color:#5ccfe6">${stats.fovea_count || 0} cells</span></div>` +
+        `<div class="retina-stat"><span class="label">Monitoring <span style="color:var(--dim)">(perifovea)</span></span><span class="value" style="color:#a78bfa">${stats.perifovea_count || 0} cells</span></div>` +
+        `<div class="retina-stat"><span class="label">Compressed <span style="color:var(--dim)">(periphery)</span></span><span class="value">${fmt(stats.periphery_count || 0)} cells</span></div>` +
+        (saccades.length ? `<div class="saccade-divider">Recent Shifts</div>` +
+          saccades.slice(-5).reverse().map(s =>
+            `<div class="saccade-log-entry"><span class="sac-cell">${escHtml(s.cell_id)}</span> &larr; <span class="sac-trigger">${escHtml(s.trigger)}</span> <span style="color:var(--dim)">${s.age_s}s ago</span></div>`
+          ).join('') : '');
+    }
+
+    if (!retinaVisible) return;
+
+    // Cluster cells into spotlights
+    const clusters = clusterRetinaCells(cells);
+
+    // Clear retina layer and redraw
+    mapLayers.retina.clearLayers();
+
+    if (clusters.length === 0) return;
+
+    clusters.forEach((cl, ci) => {
+      const interest = cl.interest;
+      // Convert degree-radius to meters (~111km per deg lat, ~70km per deg lon at 51.5)
+      // Use the cluster spread + a generous padding so the spotlight is a smooth blob
+      const spreadM = cl.radiusDeg * 111320 + 600; // base spread + 600m padding
+      const foveaRadiusM = Math.max(spreadM, 800); // minimum 800m
+      const periRadiusM = foveaRadiusM * 1.8;      // perifovea extends 1.8x
+
+      // ── Layer 1: Outermost perifovea glow (very soft, large) ──
+      L.circle([cl.lat, cl.lon], {
+        radius: periRadiusM * 1.3,
+        color: 'transparent',
+        fillColor: '#7c3aed',
+        fillOpacity: 0.03,
+        weight: 0,
+        interactive: false,
+      }).addTo(mapLayers.retina);
+
+      // ── Layer 2: Perifovea ring (violet) ──
+      L.circle([cl.lat, cl.lon], {
+        radius: periRadiusM,
+        color: 'rgba(167,139,250,0.15)',
+        fillColor: '#a78bfa',
+        fillOpacity: 0.05,
+        weight: 1,
+        interactive: false,
+      }).addTo(mapLayers.retina);
+
+      // ── Layer 3: Fovea outer glow ──
+      L.circle([cl.lat, cl.lon], {
+        radius: foveaRadiusM * 1.2,
+        color: 'transparent',
+        fillColor: '#5ccfe6',
+        fillOpacity: 0.04 + interest * 0.01,
+        weight: 0,
+        interactive: false,
+      }).addTo(mapLayers.retina);
+
+      // ── Layer 4: Fovea core (bright spotlight) ──
+      L.circle([cl.lat, cl.lon], {
+        radius: foveaRadiusM,
+        color: 'rgba(92,207,230,0.25)',
+        fillColor: '#5ccfe6',
+        fillOpacity: 0.08 + interest * 0.02,
+        weight: 1.5,
+        interactive: false,
+      }).addTo(mapLayers.retina);
+
+      // ── Layer 5: Bright center hotspot ──
+      L.circle([cl.lat, cl.lon], {
+        radius: foveaRadiusM * 0.4,
+        color: 'transparent',
+        fillColor: '#b4f0ff',
+        fillOpacity: 0.07 + interest * 0.025,
+        weight: 0,
+        interactive: false,
+      }).addTo(mapLayers.retina);
+
+      // ── Layer 6: Animated pulse ring (CSS-driven div overlay) ──
+      const pulseSize = 60 + interest * 15;
+      const pulseHtml = `<div style="width:${pulseSize}px;height:${pulseSize}px;border-radius:50%;` +
+        `border:2px solid rgba(92,207,230,0.5);` +
+        `animation:foveaRingPulse ${2.5 + ci * 0.3}s ease-out infinite;` +
+        `animation-delay:${ci * 0.7}s;"></div>`;
+      L.marker([cl.lat, cl.lon], {
+        icon: L.divIcon({ className: '', html: pulseHtml, iconSize: [pulseSize, pulseSize], iconAnchor: [pulseSize/2, pulseSize/2] }),
+        interactive: false,
+      }).addTo(mapLayers.retina);
+
+      // ── Layer 7: Second staggered pulse ring ──
+      const pulse2Size = pulseSize * 1.4;
+      const pulse2Html = `<div style="width:${pulse2Size}px;height:${pulse2Size}px;border-radius:50%;` +
+        `border:1px solid rgba(92,207,230,0.3);` +
+        `animation:foveaRingPulse ${3.2 + ci * 0.3}s ease-out infinite;` +
+        `animation-delay:${ci * 0.7 + 1.2}s;"></div>`;
+      L.marker([cl.lat, cl.lon], {
+        icon: L.divIcon({ className: '', html: pulse2Html, iconSize: [pulse2Size, pulse2Size], iconAnchor: [pulse2Size/2, pulse2Size/2] }),
+        interactive: false,
+      }).addTo(mapLayers.retina);
+
+      // ── Clickable center marker with popup ──
+      const storedPct = cl.totalObs > 0 ? Math.round(100 * cl.totalStored / cl.totalObs) : 100;
+      const centerDot = L.circleMarker([cl.lat, cl.lon], {
+        radius: 5 + interest * 2,
+        color: '#5ccfe6',
+        fillColor: '#b4f0ff',
+        fillOpacity: 0.7,
+        weight: 2,
+        opacity: 0.8,
+      });
+      centerDot.bindPopup(
+        `<div class="map-popup">` +
+        `<div class="popup-source" style="color:#5ccfe6">Attention Zone</div>` +
+        `<div style="margin:4px 0;color:#5ccfe6;font-weight:600">${cl.fovea.length} cells at full resolution</div>` +
+        `<div>${cl.peri.length} cells monitoring</div>` +
+        `<div style="margin-top:4px">Interest: ${interest}</div>` +
+        `<div>Observations: ${cl.totalStored} stored / ${cl.totalObs} total (${storedPct}%)</div>` +
+        `<div>Dropped: ${cl.totalDropped}</div>` +
+        `<div>Anomalies: ${cl.totalAnomalies}</div>` +
+        (cl.reason ? `<div>Trigger: <span style="color:#e8b84a">${escHtml(cl.reason)}</span></div>` : '') +
+        `</div>`, {maxWidth: 300}
+      );
+      centerDot.addTo(mapLayers.retina);
+    });
+
+    // Saccade ripple effects for very recent saccades
+    mapLayers.saccadeTrails.clearLayers();
+    if (saccades.length) {
+      const cellMap = new Map();
+      cells.forEach(c => cellMap.set(c.id, c));
+
+      saccades.filter(s => s.age_s < 30).forEach(s => {
+        const cellData = cellMap.get(s.cell_id);
+        if (!cellData) return;
+        // Expanding ripple ring
+        const ripSize = 70;
+        const ripHtml = `<div style="width:${ripSize}px;height:${ripSize}px;border-radius:50%;` +
+          `border:2px solid #5ccfe6;` +
+          `animation:saccadeRipple 2s ease-out infinite;"></div>`;
+        L.marker([cellData.lat, cellData.lon], {
+          icon: L.divIcon({ className: '', html: ripHtml, iconSize: [ripSize, ripSize], iconAnchor: [ripSize/2, ripSize/2] }),
+          interactive: false,
+        }).addTo(mapLayers.saccadeTrails);
+      });
+    }
+
+    // Update prev state
+    prevCellZones.clear();
+    cells.forEach(c => prevCellZones.set(c.id, c.zone_level));
+
+  } catch(e) {
+    console.error('Retina fetch error:', e);
+  } finally {
+    _retinaFetching = false;
+  }
+}
+</script>
+</body>
+</html>
