@@ -97,7 +97,7 @@ Click the image below for a live demo ↓↓
 
 Communication flows through named channels: `#raw`, `#anomalies`, `#hypotheses`, `#discoveries`, `#meta`.
 
-## Data Sources (64+ Categories)
+## Data Sources 
 
 | Category | Sources |
 |----------|---------|
