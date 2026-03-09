@@ -6,7 +6,13 @@
 
 The London Nervous System is an always-on AI city monitor that ingests live data from traffic cameras, air quality sensors, energy grids, satellite imagery, financial markets, police reports, weather stations, and dozens more sources. It uses LLM-powered agents to detect anomalies, discover cross-domain patterns (e.g. a traffic jam correlating with a power outage and a spike in air pollution), validate its own predictions, and maintain evolving narratives about what's happening across the city — all without human intervention.
 
+Click the image below for a live demo ↓↓
+
 [![Watch the demo](https://img.youtube.com/vi/FUwQOYofyfc/maxresdefault.jpg)](https://youtu.be/FUwQOYofyfc)
+
+<img width="1789" height="938" alt="image" src="https://github.com/user-attachments/assets/c87be0ff-64b9-4dd7-951d-b7c055b45386" />
+<img width="1790" height="689" alt="image" src="https://github.com/user-attachments/assets/5834837c-3618-47d5-901d-c51ca4fafee4" />
+
 
 ## Architecture
 
