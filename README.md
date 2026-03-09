@@ -1,10 +1,16 @@
 # London Nervous System
 
-**An autonomous AI that watches London through 64+ real-time data sources — detecting anomalies, finding hidden connections, and building an evolving understanding of the city.**
+**An autonomous AI that watches London through 100+ real-time data sources — detecting anomalies, finding hidden connections, and building an evolving understanding of the city.**
 
 ## What It Does
 
-The London Nervous System is an always-on AI city monitor that ingests live data from traffic cameras, air quality sensors, energy grids, satellite imagery, financial markets, police reports, weather stations, and dozens more sources. It uses LLM-powered agents to detect anomalies, discover cross-domain patterns (e.g. a traffic jam correlating with a power outage and a spike in air pollution), validate its own predictions, and maintain evolving narratives about what's happening across the city — all without human intervention.
+The London Nervous System is an autonomous AI system that monitors London as a living city in real time. It continuously ingests data from 100+ sources - TfL cameras, air quality sensors, energy grid status, satellite imagery, financial markets, news feeds, police data, and more - and uses a pipeline of specialized AI agents to detect anomalies, find cross-source patterns, and synthesise grounded insights about what's actually happening across the city. What makes it unique is its epistemic integrity model: every insight carries a confidence score that decays through each layer of inference, requiring multi-source corroboration before anything is surfaced as a genuine discovery.
+
+To handle the sheer volume of city-wide data, it uses a neuroscience-inspired "Retina" system - a foveal attention model that divides London's spatial grid into attention zones (fovea, perifovea, periphery), allocating full processing resolution only to areas showing anomalous activity while compressing quiet zones. Anomalies in the periphery trigger "saccades" that instantly promote those cells to full attention, mirroring how the human eye rapidly shifts focus. This lets the system monitor all of London while concentrating compute where it matters most.
+
+It also self-heals - a daemon watches for errors and autonomously spawns Claude Code instances to fix bugs and hot-reload without downtime. The Claude agents can also build new data ingestors allowing for constant growth.
+
+The project started with 5 but now has 100+ data sources. The whole system runs as ~50 concurrent async tasks backed by SQLite, NetworkX spatial graphs, and Gemini for reasoning, producing a live dashboard of London's pulse.
 
 Click the image below for a live demo ↓↓
 
